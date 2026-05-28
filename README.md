@@ -1,7 +1,12 @@
 # Physics-Informed Neural Networks (PINN) for Flettner Rotor Aerodynamics
 ### B.Tech. Thesis in Mechanical Engineering | National Institute of Technology Durgapur
 
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://shubh81139-pinn-flettner-rotor-app-yxnjos.streamlit.app/)
+
+👉 **Live Web App:** [shubh81139-pinn-flettner-rotor-app-yxnjos.streamlit.app](https://shubh81139-pinn-flettner-rotor-app-yxnjos.streamlit.app/)
+
 This repository contains the complete implementation of a surrogate aerodynamic model for a rotating cylinder in cross-flow using **Physics-Informed Neural Networks (PINNs)**. This work replicates and extends the research in Shubham Kumar & Rahul Yadav's Bachelor of Technology Thesis under the supervision of **Dr. Saif Akram** (May 2026).
+
 
 The project is structured strictly around the **6-Stage Deep Learning Life Cycle** to ensure physical consistency, model safety, and numerical generalization.
 
