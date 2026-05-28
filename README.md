@@ -1,7 +1,6 @@
 # Physics-Informed Neural Networks (PINN) for Flettner Rotor Aerodynamics
 ### B.Tech. Thesis in Mechanical Engineering | National Institute of Technology Durgapur
 
-[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://shubh81139-pinn-flettner-rotor-app-yxnjos.streamlit.app/)
 
 👉 **Live Web App:** [shubh81139-pinn-flettner-rotor-app-yxnjos.streamlit.app](https://shubh81139-pinn-flettner-rotor-app-yxnjos.streamlit.app/)
 
