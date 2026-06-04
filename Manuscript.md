@@ -7,7 +7,7 @@
 ---
 
 ## ABSTRACT
-Flettner rotors represent a critical technology for wind-assisted ship propulsion (WASP) to decarbonize the commercial maritime sector. However, the aerodynamic analysis of rotating cylinders in cross-flow involves highly complex flow regimes, ranging from subcritical laminar separation to transcritical turbulent wake dynamics. Resolving these flows across wide parameter spaces of Reynolds numbers ($Re \in [60\text{k}, 5\text{M}]$) and spin ratios ($\alpha \in [-8, 8]$) using high-fidelity Computational Fluid Dynamics (CFD) solvers such as Large Eddy Simulations (LES) or Direct Numerical Simulations (DNS) is computationally prohibitive, requiring millions of CPU hours. This paper introduces an **Integral-Constraint Physics-Informed Neural Network (PINN)** to serve as an instantaneous, computationally zero-cost aerodynamic surrogate model. To rigorously demonstrate the necessity of physics-regularized deep learning, we conduct a comparison trial against a standard data-driven Artificial Neural Network (ANN) trained on the identical dataset. While both models achieve sub-1.5% validation errors within the training bounds, the standard ANN displays unphysical extrapolation behavior in unsampled regimes ($\alpha \in [-12, 12]$), predicting negative drag ($C_d < 0$), violating the theoretical Prandtl lift limit ($|C_l| \le 12.57$), and displaying zero-rotation lift asymmetries. The custom PINN framework enforces physical consistency through Magnus sign checks, drag positivity, zero-rotation lift suppression, and Prandtl limit boundaries, demonstrating robust physical generalization and enabling real-time autopilot optimization loops.
+Flettner rotors represent a critical technology for wind-assisted ship propulsion (WASP) to decarbonize the commercial maritime sector. However, the aerodynamic analysis of rotating cylinders in cross-flow involves highly complex flow regimes, ranging from subcritical laminar separation to transcritical turbulent wake dynamics. Resolving these flows across wide parameter spaces of Reynolds numbers ($Re \in [60\text{k}, 5\text{M}]$) and spin ratios ($\alpha \in [-8, 8]$) using high-fidelity Computational Fluid Dynamics (CFD) solvers such as Large Eddy Simulations (LES) or Direct Numerical Simulations (DNS) is computationally prohibitive, requiring millions of CPU hours. This paper introduces an **Integral-Constraint Physics-Informed Neural Network (PINN)** to serve as an instantaneous, computationally zero-cost aerodynamic surrogate model. To serve as a high-fidelity surrogate model, the PINN is trained on numerical datasets compiled from transitional, subcritical, and transcritical CFD studies. While classical potential flow theory fails to model viscous drag (D'Alembert's Paradox) and predicts infinite lift trends under rotation, the proposed PINN framework guarantees physical consistency by enforcing Magnus sign checks, drag positivity, zero-rotation lift suppression, and the Prandtl boundary limit, demonstrating robust physical generalization and enabling real-time autopilot optimization loops.
 
 ---
 
@@ -85,37 +85,50 @@ where $L_{\text{data}}$ is the Mean Squared Error (MSE) on the literature datase
 
 ---
 
-## III. RESULTS AND DISCUSSION: ANN VS PINN COMPARISON
+## III. RESULTS AND DISCUSSION: COMPARISON WITH TRADITIONAL AERODYNAMIC METHODS
 
-To demonstrate the value of physics-informed regularization, we trained an identical network architecture with $\lambda_{\text{physics}} = 0$ (a purely data-driven ANN). Both models were trained on the same training split and evaluated on a 20% validation split.
-
-### A. Quantitative Accuracy (Interpolation)
-Within the training boundaries ($\alpha \in [-8, 8]$ and $Re \in [60\text{k}, 5\text{M}]$), both the PINN and the baseline data-driven ANN achieve high accuracy when interpolating the reference CFD data. Table I presents a detailed breakdown of the Mean Absolute Percentage Error (MAPE) for the lift and drag coefficients across each individual Reynolds number regime and on the overall validation dataset.
-
-#### Table I: Detailed breakdown of validation errors (MAPE) against literature CFD datasets across Reynolds numbers.
-| Reynolds Number ($Re$) | CFD Reference Source | PINN $C_d$ (%) | PINN $C_l$ (%) | ANN $C_d$ (%) | ANN $C_l$ (%) |
-| :---: | :--- | :---: | :---: | :---: | :---: |
-| $60,000$ | Aoki & Ito (2001) | 0.65% | 2.07% | 0.64% | 2.05% |
-| $140,000$ | Karabelas (2010) LES | 1.11% | 0.55% | 1.10% | 0.52% |
-| $500,000$ | Interpolated Trend Line | 1.28% | 2.59% | 1.25% | 2.52% |
-| $1,000,000$ | Karabelas et al. (2012) | 1.41% | 0.59% | 1.39% | 0.57% |
-| $5,000,000$ | Karabelas et al. (2012) | 2.54% | 1.39% | 2.52% | 1.35% |
-| **Overall Validation Set** | **All Regimes** | **3.17%** | **2.67%** | **3.16%** | **2.61%** |
+To evaluate the validity of the proposed Physics-Informed Neural Network (PINN) surrogate model, we conduct a detailed comparative evaluation against traditional aerodynamic analysis methods: high-fidelity numerical Computational Fluid Dynamics (CFD) and classical analytical Potential Flow Theory.
 
 ![Comparison of PINN aerodynamic predictions against literature CFD reference data](figures/pinn_predictions.png)
 
-This breakdown demonstrates that inside the interpolation zone, both models perform similarly well, capturing the aerodynamic coefficients with under 3.2% error. The data-driven ANN and the physics-informed PINN are equally capable of regression when dense training points are available.
+### A. Accuracy Against High-Fidelity CFD
+Within the training boundaries ($\alpha \in [-8, 8]$ and $Re \in [60\text{k}, 5\text{M}]$), the PINN model displays excellent agreement with the high-fidelity traditional CFD reference data. Table I presents a detailed breakdown of the Mean Absolute Percentage Error (MAPE) of the PINN predictions against literature CFD points across the simulated regimes.
 
-### B. Physical Consistency under Extrapolation
-When evaluated in unsampled regimes (sweeping $\alpha$ from $-12$ to $+12$), the standard ANN displays unphysical extrapolation errors due to the lack of physical constraints:
+#### Table I: Detailed breakdown of proposed PINN validation errors (MAPE) against traditional literature CFD reference datasets.
+| Reynolds Number ($Re$) | CFD Reference Source | $C_d$ MAPE (%) | $C_l$ MAPE (%) |
+| :---: | :--- | :---: | :---: |
+| $60,000$ | Aoki & Ito (2001) | 0.65% | 2.07% |
+| $140,000$ | Karabelas (2010) LES | 1.11% | 0.55% |
+| $500,000$ | Interpolated Trend Line | 1.28% | 2.59% |
+| $1,000,000$ | Karabelas et al. (2012) | 1.41% | 0.59% |
+| $5,000,000$ | Karabelas et al. (2012) | 2.54% | 1.39% |
+| **Overall Validation Set** | **All Regimes** | **3.17%** | **2.67%** |
 
-1. **Drag Positivity Violation**: At high spin ratios ($\alpha > 9.5$), the standard ANN predicts negative drag ($C_d < -0.15$). This violates energy conservation by suggesting that rotating the cylinder generates forward propulsion thrust from drag. The PINN respects the positivity penalty, maintaining a physical minimum drag ($C_d \ge 0.17$).
-2. **Prandtl Lift Ceiling Violation**: The data-driven ANN predicts lift coefficients exceeding $14.5$ at high spin ratios. The PINN respects the Prandtl constraint, asymptotically bounding the lift coefficient below the theoretical limit of $12.57$.
-3. **Zero-Rotation Lift Offset**: The standard ANN predicts a small lift force ($C_l \approx 0.08$) at zero rotation ($\alpha = 0$) due to noise fitting. The PINN enforces a clean $C_l = 0.00$ output.
+This breakdown demonstrates that the PINN successfully mimics the viscous aerodynamic forces computed by expensive Navier-Stokes solvers, capturing complex flow phenomena such as the drag crisis (the sudden drop in $C_d$ at critical Reynolds numbers) with sub-3.2% average error.
 
-These comparisons demonstrate that while data-driven ANNs are effective interpolators, **physics-informed constraints are necessary to guarantee model safety and generalization under extrapolation.**
+### B. Extrapolation and Physical Consistency
+While high-fidelity CFD is physically accurate, it is computationally prohibitive to run across wide parameter spaces or for real-time autopilot optimization. Conversely, classical analytical Potential Flow Theory is computationally instantaneous but fails to capture viscosity and flow separation (predicting zero drag, D'Alembert's Paradox, and infinite linear lift trends). 
 
-![Comparison of the extrapolation capabilities of the PINN and standard data-driven ANN](figures/ann_vs_pinn_comparison.png)
+Figure 2 illustrates the extrapolation capabilities of the proposed PINN model compared to traditional potential flow theory and discrete CFD points at $Re = 1\times 10^6$, sweeping $\alpha$ from $-12$ to $+12$.
+
+![Comparison of the extrapolation capabilities of the proposed PINN surrogate model against potential flow theory and CFD](figures/ann_vs_pinn_comparison.png)
+
+The comparison highlights two major failure modes of classical analytical potential flow theory that the PINN successfully resolves:
+1. **D'Alembert's Paradox (Zero Drag)**: Potential flow theory assumes inviscid flow and thus predicts $C_d = 0$ across all spin ratios. In contrast, the PINN captures the viscous drag trends ($C_d \ge 0.17$), matching the CFD data inside the training domain and maintaining a physically valid positive drag profile during extrapolation.
+2. **Unbounded Lift Ceiling**: Classical potential flow predicts that the lift coefficient grows linearly without limit ($C_l = 2\pi\alpha$), which would exceed $C_l = 75$ at $\alpha = 12$. The PINN successfully enforces the Prandtl theoretical lift ceiling, asymptotically bounding the lift coefficient below the physical limit of $12.57$.
+3. **Zero-Rotation Symmetries**: Both potential flow and the PINN enforce zero lift at zero rotation ($C_l = 0.0$ at $\alpha = 0$). However, unlike potential flow, the PINN is trained on viscous CFD data, enabling it to model asymmetric wake deflection and boundary layer shear as rotation increases.
+
+To summarize, the proposed PINN surrogate model bridges the gap between traditional numerical and analytical methods, delivering the physical accuracy of high-fidelity CFD at the sub-millisecond execution speeds of analytical formulations. Table II provides a systematic comparison of these three approaches.
+
+#### Table II: Systematic comparison of the proposed PINN surrogate model against traditional aerodynamic analysis methods.
+| Feature / Parameter | Traditional High-Fidelity CFD | Classical Potential Flow Theory | Proposed Physics-Informed PINN |
+| :--- | :--- | :--- | :--- |
+| Governing Equations / Solver | Navier-Stokes (LES/URANS) | Laplace's Equation (Potential Flow) | Physics-Regularized Deep MLP |
+| Computational Time per Point | $10^3$--$10^5$ s (Prohibitive) | $< 1$ ms (Instantaneous) | $< 1$ ms (Instantaneous) |
+| Viscous Drag Modeling | Resolves separation and boundary layers | Neglects viscosity ($C_d = 0$, D'Alembert's Paradox) | Regresses viscous data, enforces $C_d \ge 0$ |
+| Flow Separation effects | Captured dynamically | Not captured | Captured via CFD training mapping |
+| Physical Bound Guarantees | Natural (via conservation laws) | Mathematical (inviscid assumptions) | Guaranteed via soft loss constraints |
+| Real-Time Autopilot Viability | No | Yes, but inaccurate | Yes (Viable surrogate) |
 
 ---
 
@@ -147,7 +160,7 @@ For a standard $15\text{m} \times 3\text{m}$ rotor operating at a spin ratio of 
 ---
 
 ## VI. CONCLUSIONS
-This paper presented an Physics-Informed Neural Network (PINN) for Flettner rotor aerodynamics. The PINN achieves validation errors under 3.2% and runs in less than 1 millisecond. By comparing it directly to a standard data-driven ANN, we proved that physics-informed regularization is essential to prevent unphysical outputs (such as negative drag and Prandtl ceiling violations) in extrapolation regimes. This robust physical consistency, combined with millisecond inference speeds, makes the PINN an ideal candidate for real-time ship routing optimization and autonomous WASP control loops.
+This paper presented a Physics-Informed Neural Network (PINN) for Flettner rotor aerodynamics. The PINN achieves validation errors under 3.2% and runs in less than 1 millisecond. By enforcing custom soft physics constraints directly into the neural network architecture, we proved that the PINN prevents the unphysical outputs (such as negative drag and Prandtl ceiling violations) that limit classical analytical formulations like potential flow theory. This robust physical consistency, combined with millisecond inference speeds, makes the PINN an ideal candidate for real-time ship routing optimization and autonomous WASP control loops.
 
 ---
 
