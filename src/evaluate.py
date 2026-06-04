@@ -634,6 +634,93 @@ def run_evaluation(project_dir, use_large=False):
     plt.close(fig_vort)
     print(f"Saved vorticity contours grid to {vort_path}")
     
+    # 12. Comparative Analysis: PINN vs Data-Driven ANN in Out-of-Bounds (Unsampled) Regimes
+    print("Generating comparative analysis plots for PINN vs ANN...")
+    ann_model_file = 'ann_model_large.keras' if use_large else 'ann_model.keras'
+    ann_model_path = os.path.join(models_dir, ann_model_file)
+    
+    if os.path.exists(ann_model_path):
+        ann_model = keras.models.load_model(ann_model_path)
+        
+        # Sweep alpha beyond training bounds [-8, 8] -> [-12, 12]
+        alphas_ext = np.linspace(-12.0, 12.0, 300)
+        re_test = 1000000.0  # Test at Re = 1e6
+        
+        # Predict with PINN
+        cd_pinn_ext, cl_pinn_ext = predict_pinn(alphas_ext, re_test, model, stats)
+        # Predict with ANN
+        cd_ann_ext, cl_ann_ext = predict_pinn(alphas_ext, re_test, ann_model, stats)
+        
+        fig_comp, axes_comp = plt.subplots(1, 2, figsize=(14, 6))
+        
+        # Left Subplot: Drag Coefficient Cd comparison (Highlight Drag positivity)
+        axes_comp[0].plot(alphas_ext, cd_pinn_ext, color='#185FA5', linewidth=2.5, label='PINN (Physics-Informed)')
+        axes_comp[0].plot(alphas_ext, cd_ann_ext, color='#E24B4A', linestyle='--', linewidth=2.0, label='ANN (Purely Data-Driven)')
+        axes_comp[0].axhline(y=0.0, color='black', linestyle='-', linewidth=1.5, label='Physical Lower Bound ($Cd=0$)')
+        axes_comp[0].axvspan(-8.0, 8.0, color='gray', alpha=0.1, label='Training Domain')
+        axes_comp[0].set_xlabel(r'Spin ratio $\alpha$', fontsize=11)
+        axes_comp[0].set_ylabel('$Cd$', fontsize=11)
+        axes_comp[0].set_title('Drag Coefficient: Physical Positivity Boundary', fontsize=12, fontweight='bold')
+        axes_comp[0].legend(loc='upper left')
+        axes_comp[0].grid(True, alpha=0.3)
+        
+        # Right Subplot: Lift Coefficient Cl comparison (Highlight Prandtl ceiling)
+        axes_comp[1].plot(alphas_ext, cl_pinn_ext, color='#1D9E75', linewidth=2.5, label='PINN (Physics-Informed)')
+        axes_comp[1].plot(alphas_ext, cl_ann_ext, color='#E24B4A', linestyle='--', linewidth=2.0, label='ANN (Purely Data-Driven)')
+        axes_comp[1].axhline(y=4.0 * np.pi, color='black', linestyle=':', label='Prandtl Lift Ceiling ($\pm 4\pi$)')
+        axes_comp[1].axhline(y=-4.0 * np.pi, color='black', linestyle=':')
+        axes_comp[1].axvspan(-8.0, 8.0, color='gray', alpha=0.1, label='Training Domain')
+        axes_comp[1].set_xlabel(r'Spin ratio $\alpha$', fontsize=11)
+        axes_comp[1].set_ylabel('$Cl$', fontsize=11)
+        axes_comp[1].set_title('Lift Coefficient: Prandtl Limit & Symmetries', fontsize=12, fontweight='bold')
+        axes_comp[1].legend(loc='upper left')
+        axes_comp[1].grid(True, alpha=0.3)
+        
+        plt.tight_layout()
+        comp_path = os.path.join(figures_dir, f'ann_vs_pinn_comparison{fig_suffix}.png')
+        plt.savefig(comp_path, dpi=150, bbox_inches='tight')
+        plt.close(fig_comp)
+        print(f"Saved comparative performance plot to {comp_path}")
+        
+        # Print comparative validation errors
+        val_file = 'val_data_large.json' if use_large else 'val_data.json'
+        with open(os.path.join(data_dir, val_file), 'r') as f:
+            val_json = json.load(f)
+        X_val = np.array(val_json['X_val'], dtype=np.float32)
+        Y_val = np.array(val_json['Y_val'], dtype=np.float32)
+        
+        Y_mean = np.array(stats['Y_mean'])
+        Y_std = np.array(stats['Y_std'])
+        
+        y_val_pinn = model(X_val, training=False).numpy()
+        y_val_pinn_phys = y_val_pinn * Y_std + Y_mean
+        
+        y_val_ann = ann_model(X_val, training=False).numpy()
+        y_val_ann_phys = y_val_ann * Y_std + Y_mean
+        
+        Y_val_phys = Y_val * Y_std + Y_mean
+        
+        cd_val_true = Y_val_phys[:, 0]
+        cl_val_true = Y_val_phys[:, 1]
+        
+        pinn_cd_mape = np.mean(np.abs((y_val_pinn_phys[:, 0] - cd_val_true) / np.clip(cd_val_true, 0.05, None))) * 100
+        pinn_cl_mape = np.mean(np.abs((y_val_pinn_phys[:, 1] - cl_val_true) / np.clip(np.abs(cl_val_true), 0.1, None))) * 100
+        
+        ann_cd_mape = np.mean(np.abs((y_val_ann_phys[:, 0] - cd_val_true) / np.clip(cd_val_true, 0.05, None))) * 100
+        ann_cl_mape = np.mean(np.abs((y_val_ann_phys[:, 1] - cl_val_true) / np.clip(np.abs(cl_val_true), 0.1, None))) * 100
+        
+        print("\n" + "="*80)
+        print("SUMMARY: PINN VS DATA-DRIVEN ANN VALIDATION METRICS")
+        print("="*80)
+        print(f"Model  | Cd MAPE  | Cl MAPE")
+        print("-"*80)
+        print(f"PINN   | {pinn_cd_mape:7.2f}% | {pinn_cl_mape:7.2f}%")
+        print(f"ANN    | {ann_cd_mape:7.2f}% | {ann_cl_mape:7.2f}%")
+        print("="*80)
+    else:
+        print("ANN model not found, skipping comparison plotting.")
+
+    
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(description="Evaluate PINN")

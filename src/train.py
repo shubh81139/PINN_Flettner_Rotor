@@ -7,16 +7,25 @@ import tensorflow as tf
 from tensorflow import keras
 from model import build_pinn
 
-def train_pinn(project_dir, use_large=False):
+def train_model(project_dir, use_large=False, is_pinn=True):
     # 1. Load datasets and normalization stats
     data_dir = os.path.join(project_dir, 'data')
     
     train_file = 'train_data_large.json' if use_large else 'train_data.json'
     val_file = 'val_data_large.json' if use_large else 'val_data.json'
     stats_file = 'normalization_stats_large.json' if use_large else 'normalization_stats.json'
-    log_file = 'training_log_large.csv' if use_large else 'training_log_multi_re.csv'
-    model_file = 'pinn_model_large.keras' if use_large else 'pinn_model.keras'
     
+    if is_pinn:
+        log_file = 'training_log_large.csv' if use_large else 'training_log_multi_re.csv'
+        model_file = 'pinn_model_large.keras' if use_large else 'pinn_model.keras'
+        LAMBDA_PHYSICS = 0.05
+        model_type_str = "PINN"
+    else:
+        log_file = 'ann_training_log_large.csv' if use_large else 'ann_training_log_multi_re.csv'
+        model_file = 'ann_model_large.keras' if use_large else 'ann_model.keras'
+        LAMBDA_PHYSICS = 0.0
+        model_type_str = "ANN"
+        
     with open(os.path.join(data_dir, train_file), 'r') as f:
         train_json = json.load(f)
     with open(os.path.join(data_dir, val_file), 'r') as f:
@@ -36,9 +45,8 @@ def train_pinn(project_dir, use_large=False):
     Y_std = tf.constant(stats['Y_std'], dtype=tf.float32)
     
     # 2. Hyperparameters
-    LAMBDA_PHYSICS = 0.05
     BATCH_SIZE = 64
-    EPOCHS = 500 if use_large else 5000 # Scaled down for large dataset to maintain similar training steps
+    EPOCHS = 500 if use_large else 5000
     LR_MAX = 1e-3
     LR_MIN = 1e-5
     PRANDTL_LIMIT = 4.0 * math.pi
@@ -94,10 +102,12 @@ def train_pinn(project_dir, use_large=False):
         return total_loss, data_loss, physics_loss
     
     # 4. Training Loop
-    print(f"Starting training for {EPOCHS} epochs on {'LARGE' if use_large else 'DEFAULT'} dataset...")
+    print("\n" + "="*80)
+    print(f"Starting training for {EPOCHS} epochs on {model_type_str} ({'LARGE' if use_large else 'DEFAULT'} dataset)...")
     print(f"Physics loss weight (lambda): {LAMBDA_PHYSICS}")
     print(f"Learning rate: Cosine decay {LR_MAX} -> {LR_MIN}")
     print(f"Batch size: {BATCH_SIZE}")
+    print("="*80)
     
     history = {'epoch': [], 'loss': [], 'data_loss': [], 'phys_loss': [], 'val_mse': []}
     
@@ -156,9 +166,20 @@ def train_pinn(project_dir, use_large=False):
     
 if __name__ == '__main__':
     import argparse
-    parser = argparse.ArgumentParser(description="Train PINN")
+    parser = argparse.ArgumentParser(description="Train PINN / ANN models")
     parser.add_argument('--large', action='store_true', help="Train using the large dataset (~100k rows)")
+    parser.add_argument('--ann-only', action='store_true', help="Only train the standard data-driven ANN model")
+    parser.add_argument('--pinn-only', action='store_true', help="Only train the PINN model")
     args = parser.parse_args()
     
     project_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    train_pinn(project_dir, use_large=args.large)
+    
+    if args.ann_only:
+        train_model(project_dir, use_large=args.large, is_pinn=False)
+    elif args.pinn_only:
+        train_model(project_dir, use_large=args.large, is_pinn=True)
+    else:
+        # Train both models sequentially
+        train_model(project_dir, use_large=args.large, is_pinn=True)
+        train_model(project_dir, use_large=args.large, is_pinn=False)
+
