@@ -395,7 +395,7 @@ def main():
         "📚 Theory & Methodology", 
         "🔍 Validation & Flow Physics", 
         "🚢 Flettner Rotor Sizing Calculator", 
-        "🛡️ ANN vs PINN Comparison",
+        "🛡️ PINN vs Traditional Methods",
         "📚 Literature Outcomes & Conclusions"
     ])
     
